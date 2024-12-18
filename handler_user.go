@@ -19,7 +19,7 @@ func handlerLogin(s *state, cmd command) error {
 	}
 	username := cmd.args[0]
 
-	_, err := s.db.GetUser(
+	_, err := s.db.GetUserByName(
 		context.Background(),
 		username,
 	)
@@ -41,7 +41,7 @@ func handlerRegister(s *state, cmd command) error {
 	}
 	username := cmd.args[0]
 
-	_, usrCheck := s.db.GetUser(
+	_, usrCheck := s.db.GetUserByName(
 		context.Background(),
 		username,
 	)
