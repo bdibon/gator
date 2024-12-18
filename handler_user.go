@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -75,6 +77,25 @@ func handlerReset(s *state, _ command) error {
 		return fmt.Errorf("couldn't reset users: %w", err)
 	}
 	fmt.Println("successfully resetted users")
+	return nil
+}
+
+func handlerList(s *state, _ command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("couldn't retrieve users from db: %w", err)
+	}
+
+	currentName := s.cfg.CurrentUserName
+	writer := bufio.NewWriter(os.Stdout)
+	for _, user := range users {
+		if user.Name == currentName {
+			writer.WriteString(fmt.Sprintf("* %s (current)\n", user.Name))
+		} else {
+			writer.WriteString(fmt.Sprintf("* %s\n", user.Name))
+		}
+	}
+	writer.Flush()
 	return nil
 }
 
