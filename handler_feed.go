@@ -23,13 +23,9 @@ func handlerAgg(_ *state, _ command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state, c command) error {
+func handlerAddFeed(s *state, c command, user database.User) error {
 	if len(c.args) != 2 {
 		return errors.New("expected 2 arguments <feedname, feedurl>")
-	}
-	currentUser, err := s.db.GetUserByName(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("couldn't find user %s: %w", s.cfg.CurrentUserName, err)
 	}
 
 	name, url := c.args[0], c.args[1]
@@ -39,13 +35,13 @@ func handlerAddFeed(s *state, c command) error {
 		UpdatedAt: time.Now().UTC(),
 		Name:      name,
 		Url:       url,
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 	})
 	if err != nil {
 		return fmt.Errorf("couldn't save feed to db: %w", err)
 	}
 	fmt.Printf("Sucessfully created feed: %#v\n", feed)
-	return createFeedFollows(s, feed, currentUser)
+	return createFeedFollows(s, feed, user)
 }
 
 func handlerFeeds(s *state, _ command) error {

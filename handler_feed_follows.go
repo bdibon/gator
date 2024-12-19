@@ -14,14 +14,9 @@ import (
 	"github.com/google/uuid"
 )
 
-func handlerFollow(s *state, c command) error {
+func handlerFollow(s *state, c command, user database.User) error {
 	if len(c.args) < 1 {
 		return errors.New("missing argument: feed url")
-	}
-
-	currentUser, err := s.db.GetUserByName(context.Background(), s.cfg.CurrentUserName)
-	if err != nil {
-		return fmt.Errorf("couldn't find current user: %w", err)
 	}
 
 	feedUrl := c.args[0]
@@ -44,13 +39,13 @@ func handlerFollow(s *state, c command) error {
 			UpdatedAt: time.Now(),
 			Name:      newFeed.Channel.Title,
 			Url:       newFeed.Channel.Link,
-			UserID:    currentUser.ID,
+			UserID:    user.ID,
 		})
 		if err != nil {
 			return fmt.Errorf("couldn't create new feed: %w", err)
 		}
 	}
-	return createFeedFollows(s, feed, currentUser)
+	return createFeedFollows(s, feed, user)
 }
 
 func createFeedFollows(s *state, feed database.Feed, user database.User) error {
@@ -69,8 +64,8 @@ func createFeedFollows(s *state, feed database.Feed, user database.User) error {
 	return nil
 }
 
-func handlerFollowing(s *state, c command) error {
-	feedFollows, err := s.db.GetFeedFollowsForUser(context.Background(), s.cfg.CurrentUserName)
+func handlerFollowing(s *state, c command, user database.User) error {
+	feedFollows, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return fmt.Errorf("couldn't retrieve feed_follows: %w", err)
