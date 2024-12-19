@@ -81,3 +81,26 @@ func handlerFollowing(s *state, c command, user database.User) error {
 	writer.Flush()
 	return nil
 }
+
+func handlerUnfollow(s *state, c command, user database.User) error {
+	if len(c.args) < 1 {
+		return errors.New("missing argument <feed_url>")
+	}
+
+	feedUrl := c.args[0]
+	feed, err := s.db.GetFeedByUrl(context.Background(), feedUrl)
+	if err != nil {
+		return fmt.Errorf("feed not found: %w", err)
+	}
+
+	err = s.db.DeleteFeedFollowsForUser(context.Background(), database.DeleteFeedFollowsForUserParams{
+		UserID: user.ID,
+		FeedID: feed.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("couldn't delete feed: %w", err)
+	}
+
+	fmt.Printf("%s unfollowed %s\n", user.Name, feed.Name)
+	return nil
+}
