@@ -13,13 +13,24 @@ import (
 	"github.com/google/uuid"
 )
 
-func handlerAgg(_ *state, _ command) error {
-	feed, err := rss.FetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
-	if err != nil {
-		return fmt.Errorf("couldn't fetch rss feed: %w", err)
+func handlerAgg(s *state, c command) error {
+	if len(c.args) < 1 {
+		return errors.New("missing argument: <time_between_req>")
 	}
 
-	fmt.Printf("%#v\n", feed)
+	timeBetweenRequests, err := time.ParseDuration(c.args[0])
+	if err != nil {
+		return fmt.Errorf("couldn't parse <time_between_req>: %w", err)
+	}
+
+	ticker := time.NewTicker(timeBetweenRequests)
+	for range ticker.C {
+		err = scrapeFeeds(s)
+		if err != nil {
+			return fmt.Errorf("error while scrapping feeds: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -70,4 +81,35 @@ func handlerFeeds(s *state, _ command) error {
 	}
 	writer.Flush()
 	return nil
+}
+
+func scrapeFeeds(s *state) error {
+	feed, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("couldn't get next feed: %w", err)
+	}
+
+	err = s.db.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{
+		ID:        feed.ID,
+		UpdatedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		return fmt.Errorf("couldn't mark feed \"%s\" as fetched: %w", feed.Name, err)
+	}
+
+	freshFeed, err := rss.FetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return fmt.Errorf("couldn't fetch feed with url %s: %w", feed.Url, err)
+	}
+	printFeedItem(freshFeed)
+	return nil
+}
+
+func printFeedItem(feed *rss.RSSFeed) {
+	writer := bufio.NewWriter(os.Stdout)
+	writer.WriteString(fmt.Sprintf("%s's items:\n", feed.Channel.Title))
+	for _, item := range feed.Channel.Item {
+		writer.WriteString(fmt.Sprintf("\t* %s\n", item.Title))
+	}
+	writer.Flush()
 }

@@ -38,7 +38,7 @@ func handlerFollow(s *state, c command, user database.User) error {
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 			Name:      newFeed.Channel.Title,
-			Url:       newFeed.Channel.Link,
+			Url:       feedUrl,
 			UserID:    user.ID,
 		})
 		if err != nil {
