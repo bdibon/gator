@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -24,7 +25,7 @@ func handlerAgg(_ *state, _ command) error {
 
 func handlerAddFeed(s *state, c command) error {
 	if len(c.args) != 2 {
-		return fmt.Errorf("expected 2 arguments got %d", len(c.args))
+		return errors.New("expected 2 arguments <feedname, feedurl>")
 	}
 	currentUser, err := s.db.GetUserByName(context.Background(), s.cfg.CurrentUserName)
 	if err != nil {
@@ -44,7 +45,7 @@ func handlerAddFeed(s *state, c command) error {
 		return fmt.Errorf("couldn't save feed to db: %w", err)
 	}
 	fmt.Printf("Sucessfully created feed: %#v\n", feed)
-	return nil
+	return createFeedFollows(s, feed, currentUser)
 }
 
 func handlerFeeds(s *state, _ command) error {
