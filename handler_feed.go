@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"github.com/bdibon/gator/internal/database"
 	"github.com/bdibon/gator/internal/rss"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 func handlerAgg(s *state, c command) error {
@@ -101,15 +103,39 @@ func scrapeFeeds(s *state) error {
 	if err != nil {
 		return fmt.Errorf("couldn't fetch feed with url %s: %w", feed.Url, err)
 	}
-	printFeedItem(freshFeed)
-	return nil
-}
 
-func printFeedItem(feed *rss.RSSFeed) {
 	writer := bufio.NewWriter(os.Stdout)
-	writer.WriteString(fmt.Sprintf("%s's items:\n", feed.Channel.Title))
-	for _, item := range feed.Channel.Item {
-		writer.WriteString(fmt.Sprintf("\t* %s\n", item.Title))
+	writer.WriteString(fmt.Sprintf("Fetching feed: %s\n", freshFeed.Channel.Title))
+
+	for _, post := range freshFeed.Channel.Item {
+		pubTime, err := time.Parse("Mon, 02 Jan 2006 15:04:05 -0700", post.PubDate)
+		pubNullTime := sql.NullTime{
+			Time:  pubTime,
+			Valid: err == nil,
+		}
+		post, err := s.db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now().UTC(),
+			UpdatedAt:   time.Now().UTC(),
+			Title:       post.Title,
+			Url:         post.Link,
+			Description: post.Description,
+			FeedID:      feed.ID,
+			PublishedAt: pubNullTime,
+		})
+		if err != nil {
+			if pgErr, ok := err.(*pq.Error); ok {
+				if pgErr.Code == "23505" {
+					continue
+				}
+			}
+			return fmt.Errorf("couldn't create post: %w", err)
+		}
+		writer.WriteString(fmt.Sprintf("\t* Created post: %s\n", post.Title))
 	}
+
+	writer.WriteString("\n")
 	writer.Flush()
+
+	return nil
 }
